@@ -20,7 +20,7 @@ from    pfmisc._colors          import Colors
 from    pfmisc.C_snode          import  *
 
 
-str_version = "1.0.0.0"
+str_version = "1.0.0.2"
 str_name    = 'db_clean'
 str_desc    = Colors.CYAN + """
      _ _          _
@@ -76,8 +76,10 @@ class db_clean:
 
         self.dp                 = pfmisc.debug(
                                             verbosity   = self.verbosity,
-                                            within      = self.__name__
+                                            within      = self.__name__,
+                                            syslog      = False
                                 )
+        self.dp.methodcol       = 20
 
     def do(self):
         """
@@ -96,12 +98,15 @@ class db_clean:
                 saveJSON        = True,
                 savePickle      = False)
 
-        self.dp.qprint('Clearing internal memory DB...', level = 1)
+        self.dp.qprint('%50s%8s' % ('Clearing internal memory DB...', 
+                                    '[ done ]'))
         tree_DB = C_stree()
-        self.dp.qprint('Removing DB from persistent storage...')
+        self.dp.qprint('%50s%8s' % ('Removing DB from persistent storage...', 
+                                    '[ done ]'))
         if os.path.isdir(self.str_DBpath):
             shutil.rmtree(self.str_DBpath, ignore_errors=True)
-        self.dp.qprint('Saving empty DB to peristent storage')
+        self.dp.qprint('%50s%8s' % ('Saving empty DB to peristent storage...',
+                                    '[ done ]'))
         saveToDiskAsJSON(tree_DB)
 
 def synopsis(ab_shortOnly = False):
