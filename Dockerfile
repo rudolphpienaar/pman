@@ -12,7 +12,7 @@
 # In the case of a proxy (located at say 10.41.13.4:3128), do:
 #
 #    export PROXY="http://10.41.13.4:3128"
-#    docker build --build-arg http_proxy=${PROXY} --build-arg UID=$UID -t local/pfcon .
+#    docker build --build-arg http_proxy=${PROXY} --build-arg UID=$UID -t local/pman .
 #
 # To run an interactive shell inside this container, do:
 #
