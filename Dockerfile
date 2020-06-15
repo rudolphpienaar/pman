@@ -29,13 +29,16 @@ LABEL maintainer="dev@babymri.org"
 
 # Pass a UID on build command line (see above) to set internal UID
 ARG UID=1001
-ENV UID=$UID
+ENV UID=$UID DEBIAN_FRONTEND=noninteractive
 
 COPY . /tmp/pman
 COPY ./docker-entrypoint.py /dock/docker-entrypoint.py
 
-RUN pip install --upgrade pip                                         \
+RUN export LC_ALL=en_US.UTF-8                                         \
+  && export LANG=en_US.UTF-8                                          \
+  && pip install --upgrade pip                                        \
   && apt-get update                                                   \
+  && apt-get install locales && locale-gen en_US.UTF-8                \
   && apt-get install sudo                                             \
   && useradd -u $UID -ms /bin/bash localuser                          \
   && addgroup localuser sudo                                          \
