@@ -132,6 +132,7 @@ class pman(object):
         # DB
         self.b_clearDB          = False
         self.str_DBpath         = '/tmp/pman'
+        self.str_directiveFile  = '/tmp/d_msg.json'
         self.ptree             = C_stree()
         self.str_fileio         = 'json'
         self.DBsavePeriod       = 60
@@ -162,25 +163,26 @@ class pman(object):
         self.authModule         = None
 
         for key,val in kwargs.items():
-            if key == 'protocol':       self.str_protocol   = val
-            if key == 'IP':             self.str_IP         = val
-            if key == 'port':           self.str_port       = val
-            if key == 'raw':            self.router_raw     = int(val)
-            if key == 'listeners':      self.listeners      = int(val)
-            if key == 'listenerSleep':  self.listenerSleep  = float(val)
-            if key == 'DBsavePeriod':   self.DBsavePeriod   = int(val)
-            if key == 'http':           self.b_http         = int(val)
-            if key == 'within':         self.within         = val
-            if key == 'debugFile':      self.str_debugFile  = val
-            if key == 'debugToFile':    self.b_debugToFile  = val
-            if key == 'DBpath':         self.str_DBpath     = val
-            if key == 'clearDB':        self.b_clearDB      = val
-            if key == 'desc':           self.str_desc       = val
-            if key == 'name':           self.str_name       = val
-            if key == 'version':        self.str_version    = val
-            if key == 'containerEnv':   self.container_env  = val.lower()
-            if key == 'verbosity':      self.verbosity      = int(val)
-            if key == 'b_tokenAuth':    self.b_tokenAuth    = val
+            if key == 'protocol':       self.str_protocol       = val
+            if key == 'IP':             self.str_IP             = val
+            if key == 'port':           self.str_port           = val
+            if key == 'raw':            self.router_raw         = int(val)
+            if key == 'listeners':      self.listeners          = int(val)
+            if key == 'listenerSleep':  self.listenerSleep      = float(val)
+            if key == 'DBsavePeriod':   self.DBsavePeriod       = int(val)
+            if key == 'http':           self.b_http             = int(val)
+            if key == 'within':         self.within             = val
+            if key == 'debugFile':      self.str_debugFile      = val
+            if key == 'debugToFile':    self.b_debugToFile      = val
+            if key == 'directiveFile':  self.str_directiveFile  = val
+            if key == 'DBpath':         self.str_DBpath         = val
+            if key == 'clearDB':        self.b_clearDB          = val
+            if key == 'desc':           self.str_desc           = val
+            if key == 'name':           self.str_name           = val
+            if key == 'version':        self.str_version        = val
+            if key == 'containerEnv':   self.container_env      = val.lower()
+            if key == 'verbosity':      self.verbosity          = int(val)
+            if key == 'b_tokenAuth':    self.b_tokenAuth        = val
             if key == 'str_tokenPath':
                 if self.b_tokenAuth:
                     self.authModule = Auth('socket', val)
@@ -401,12 +403,13 @@ class pman(object):
         self.socket_back.bind('inproc://backend')
 
         # Start the 'fileIO' thread
-        self.fileIO      = FileIO(      DB          = self.ptree,
-                                        timeout     = self.DBsavePeriod,
-                                        within      = self,
-                                        debugFile   = self.str_debugFile,
-                                        verbosity   = self.verbosity,
-                                        debugToFile = self.b_debugToFile)
+        self.fileIO      = FileIO(  DB              = self.ptree,
+                                    directiveFile   = self.str_directiveFile,
+                                    timeout         = self.DBsavePeriod,
+                                    within          = self,
+                                    debugFile       = self.str_debugFile,
+                                    verbosity       = self.verbosity,
+                                    debugToFile     = self.b_debugToFile)
         self.fileIO.start()
 
 
@@ -446,12 +449,6 @@ class pman(object):
     def __iter__(self):
         yield('Feed', dict(self.ptree.snode_root))
 
-    # @abc.abstractmethod
-    # def create(self, **kwargs):
-    #     """Create a new tree
-    #
-    #     """
-
     def __str__(self):
         """Print
         """
@@ -469,7 +466,11 @@ class pman(object):
 
 class FileIO(threading.Thread):
     """
-    A class that periodically saves the database from memory out to disk.
+    A class that periodically performs several file system based
+    operations, including:
+
+        * saving the database from memory out to disk.
+        * checking for a directive file to interpret.
     """
 
     def __init__(self, **kwargs):
@@ -480,6 +481,7 @@ class FileIO(threading.Thread):
 
         self.timeout            = 60
         self.within             = None
+        self.str_directiveFile  = "/tmp/d_msg.json"
 
         self.b_stopThread       = False
         self.verbosity          = 1
@@ -490,13 +492,14 @@ class FileIO(threading.Thread):
         self.pp                 = pprint.PrettyPrinter(indent=4)
 
         for key,val in kwargs.items():
-            if key == 'DB':             self.ptree          = val
-            if key == 'DBpath':         self.str_DBpath     = val
-            if key == 'timeout':        self.timeout        = val
-            if key == 'within':         self.within         = val
-            if key == 'debugFile':      self.str_debugFile  = val
-            if key == 'debugToFile':    self.b_debugToFile  = val
-            if key == 'verbosity':      self.verbosity      = int(val)
+            if key == 'directiveFile':  self.str_directiveFile  = val
+            if key == 'DB':             self.ptree              = val
+            if key == 'DBpath':         self.str_DBpath         = val
+            if key == 'timeout':        self.timeout            = val
+            if key == 'within':         self.within             = val
+            if key == 'debugFile':      self.str_debugFile      = val
+            if key == 'debugToFile':    self.b_debugToFile      = val
+            if key == 'verbosity':      self.verbosity          = int(val)
 
         self.dp                 = pfmisc.debug(
                                         verbosity   = self.verbosity,
@@ -506,24 +509,74 @@ class FileIO(threading.Thread):
 
         threading.Thread.__init__(self)
 
+    def directiveFile_process(self):
+        """
+        If a new directive file exists:
+
+            - read the file
+            - process the JSON message through the ProcessPOST() 
+              method
+            - delete the file.
+
+        """
+        b_jsonRead  = False
+        d_request   = {}
+        try:
+            with open(self.str_directiveFile) as fdirective:
+                try:
+                    d_request   = json.load(fdirective)
+                    b_jsonRead  = True
+                    fdirective.close()
+                except:
+                    b_jsonRead  = False
+        except FileNotFoundError:
+            pass
+
+        if b_jsonRead:
+            os.remove(self.str_directiveFile)
+        return {
+            'status':       b_jsonRead,
+            'd_request':    d_request
+        }
+
+    def directiveCmd_process(self, d_request):
+        """
+
+            Call the relevant method to process the directive.
+
+        """
+        b_status    = False
+        d_process   = {}
+
+        # Call the first listener to process this directive
+        d_process   = self.within.l_listener[0].processPOST(
+                                request = d_request,
+                                ret     = d_request
+        )
+
+        return {
+            'status':       b_status,
+            'd_process':    d_process
+        }
+
+
     def run(self):
         """ Main execution. """
-        # Socket to communicate with front facing server.
         while not self.b_stopThread:
-            # self.dp.qprint('Saving DB as type "%s" to "%s"...' % (
-            #     self.within.str_fileio,
-            #     self.within.str_DBpath
-            # ))
+            # Once per timeout loop we save the internal DB
             self.within.DB_fileIO(cmd = 'save')
-            # self.dp.qprint('DB saved...')
             for second in range(0, self.timeout):
                 if not self.b_stopThread:
+                    # After each 1 second sleep, we check for 
+                    # the presence of a new directive file and
+                    # process it.
                     time.sleep(1)
+                    d_directive = self.directiveFile_process()
+                    if d_directive['status']:
+                        self.directiveCmd_process(d_directive['d_request'])
                 else:
                     break
-
         self.dp.qprint('returning from FileIO run method...')
-        # raise ValueError('FileIO thread terminated.')
 
 class Listener(threading.Thread):
     """ Listeners accept communication requests from front facing server.
@@ -575,7 +628,6 @@ class Listener(threading.Thread):
                                         within      = self.__name)
 
         threading.Thread.__init__(self)
-        # logging.debug('leaving __init__')
 
     def df_print(self, adict):
         """
@@ -838,7 +890,6 @@ class Listener(threading.Thread):
         d_ret       = self.DB_get(path  = str_DBpath)
         return {'d_ret':    d_ret,
                 'status':   True}
-
 
     def t_fileiosetup_process(self, *args, **kwargs):
         """
